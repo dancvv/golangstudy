@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"sync"
+	"time"
 )
 
 type Server struct {
@@ -63,6 +64,8 @@ func (this *Server) Handler(conn net.Conn) {
 	// 用户上线
 	user.Online()
 
+	// 监听用户是否是活跃的channel
+	isLive := make(chan bool)
 	// 广播当前用户上线消息
 	// this.BroadCast(user, "已上线")
 
@@ -84,10 +87,34 @@ func (this *Server) Handler(conn net.Conn) {
 			// 用户针对msg进行消息处理
 			user.DoMessage(msg)
 			// this.BroadCast(user, msg)
+
+			// 用户的任意消息，代表当前用户是一个活跃的
+			isLive <- true
 		}
 	}()
 	// 当前handler阻塞
-	select {}
+	/* 加入定时器，使得可以进行超时强踢*/
+	for {
+		select {
+		case <-isLive:
+			// 当前用户是获取的，应该重置定时器
+			// 不做任何事情，为了激活select，更新下面的定时器
+		case <-time.After(time.Second * 10):
+			// 已经超时
+			// 将当前的user强制的关闭，利用阻塞的机制
+			user.SendMsg("你被踢了")
+
+			// 销毁用的资源
+			close(user.C)
+
+			// 关闭链接
+			conn.Close()
+
+			// 退出当前handler
+			return // runtime.goexist 也可以
+		}
+	}
+	// select {}
 
 }
 
