@@ -42,6 +42,7 @@ func (this *Server) BroadCast(user *User, msg string) {
 func (this *Server) ListenMessage() {
 	for {
 		msg := <-this.Message
+		fmt.Println(msg)
 		// 将msg发送给全部的在线user
 		this.mapLock.Lock()
 		for _, cli := range this.OnlineMap {
@@ -74,12 +75,19 @@ func (this *Server) Handler(conn net.Conn) {
 		buf := make([]byte, 4096)
 		for {
 			n, err := conn.Read(buf)
+			// 下线
+			// if n == 0 {
+			// 	this.BroadCast(user, "下线")
+			// 	return
+			// }
+			// 需要正确的使用下线功能
 			if n == 0 {
-				this.BroadCast(user, "下线")
+				user.Offline()
 				return
 			}
 			if err != nil && err != io.EOF {
 				fmt.Println("conn read err", err)
+				return
 			}
 			// 提取用户的消息，去除'\n'
 			msg := string(buf[:n-1])
